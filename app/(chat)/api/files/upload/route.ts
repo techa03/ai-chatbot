@@ -1,6 +1,6 @@
-import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import axios from 'axios';
 
 import { auth } from '@/app/(auth)/auth';
 
@@ -11,7 +11,6 @@ const FileSchema = z.object({
     .refine((file) => file.size <= 5 * 1024 * 1024, {
       message: 'File size should be less than 5MB',
     })
-    // Update the file type based on the kind of files you want to accept
     .refine((file) => ['image/jpeg', 'image/png'].includes(file.type), {
       message: 'File type should be JPEG or PNG',
     }),
@@ -48,14 +47,20 @@ export async function POST(request: Request) {
 
     // Get filename from formData since Blob doesn't have name property
     const filename = (formData.get('file') as File).name;
-    const fileBuffer = await file.arrayBuffer();
 
     try {
-      const data = await put(`${filename}`, fileBuffer, {
-        access: 'public',
+      // 上传文件到自定义文件服务器
+      const customServerUrl = 'http://127.0.0.1:18049/oss/files/upload'; // 替换为你的自定义服务器地址
+      const formData = new FormData();
+      formData.append('file', file, filename);
+
+      const response = await axios.post(customServerUrl, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
-      return NextResponse.json(data);
+      return NextResponse.json(response.data.data);
     } catch (error) {
       return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
     }
